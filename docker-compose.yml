@@ -46,6 +46,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
       DJANGO_SETTINGS_MODULE: config.settings
+      STOCK_PROVIDER: mock
     volumes:
       - ./backend:/app
       - /app/.venv
@@ -70,6 +71,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
       DJANGO_SETTINGS_MODULE: config.settings
+      STOCK_PROVIDER: mock
     volumes:
       - ./backend:/app
       - /app/.venv
@@ -90,6 +92,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
       DJANGO_SETTINGS_MODULE: config.settings
+      STOCK_PROVIDER: mock
     volumes:
       - ./backend:/app
       - /app/.venv
