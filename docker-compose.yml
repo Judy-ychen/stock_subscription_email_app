@@ -47,6 +47,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       DJANGO_SETTINGS_MODULE: config.settings
       STOCK_PROVIDER: mock
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
     volumes:
       - ./backend:/app
       - /app/.venv
@@ -72,6 +73,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       DJANGO_SETTINGS_MODULE: config.settings
       STOCK_PROVIDER: mock
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
     volumes:
       - ./backend:/app
       - /app/.venv
@@ -93,6 +95,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       DJANGO_SETTINGS_MODULE: config.settings
       STOCK_PROVIDER: mock
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
     volumes:
       - ./backend:/app
       - /app/.venv

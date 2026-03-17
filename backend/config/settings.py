@@ -54,7 +54,18 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.subscriptions",
     "apps.stocks",
+    "apps.notifications",
 ]
+
+# Email settings
+DEFAULT_FROM_EMAIL = "noreply@stockalert.dev"
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend"
+)
+
+# Celery timezone — important for beat schedule
+CELERY_TIMEZONE = "America/New_York"
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME":  timedelta(minutes=15),
