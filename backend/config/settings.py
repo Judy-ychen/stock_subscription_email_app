@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     
     # my apps
     "apps.accounts",
+    "apps.subscriptions",
 ]
 
 SIMPLE_JWT = {
