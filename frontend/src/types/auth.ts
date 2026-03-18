@@ -14,6 +14,12 @@ export type RefreshResponse = {
   access: string;
 };
 
+export type RegisterRequest = {
+  email: string;
+  password: string;
+  password_confirm?: string;
+};
+
 export type AuthState = {
   accessToken: string | null;
   refreshToken: string | null;

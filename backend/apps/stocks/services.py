@@ -31,7 +31,7 @@ PRICE_TTL          = 60 * 5         # 5 minutes — stock price
 # ── Return type ───────────────────────────────────────────────────────────────
 class StockPrice(TypedDict):
     ticker : str
-    price  : float
+    price  : float | None
     source : str   # "yfinance" | "mock"
 
 
@@ -118,15 +118,24 @@ def validate_ticker(ticker: str) -> bool:
 
 
 def get_stock_price(ticker: str) -> StockPrice:
+    ticker = ticker.upper().strip()
+
+    is_valid = validate_ticker(ticker)
+    if not is_valid:
+        return {
+            "ticker": ticker,
+            "price": None,
+            "source": "invalid",
+        }
+    
     if _is_mock_mode():
         return {
-            "ticker": ticker.upper(),
+            "ticker": ticker,
             "price":  _mock_price(ticker),
             "source": "mock",
         }
-    ticker = ticker.upper().strip()
+    
     cache_key = _cache_key_price(ticker)
-
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -140,17 +149,17 @@ def get_stock_price(ticker: str) -> StockPrice:
             "source": "yfinance",
         }
         cache.set(cache_key, result, PRICE_TTL)   # only cache real data
-    else:
-        # Network failure or yfinance down → use mock, but don't cache
-        # so the next request tries yfinance again
-        logger.warning("yfinance unavailable for %s — using mock fallback", ticker)
-        result = {
-            "ticker": ticker,
-            "price":  _mock_price(ticker),
-            "source": "mock",
-        }
-
-    return result
+        return result
+    
+    
+    # Network failure or yfinance down → use mock, but don't cache
+    # so the next request tries yfinance again
+    logger.warning("yfinance unavailable for %s — using mock fallback", ticker)
+    result = {
+        "ticker": ticker,
+        "price":  _mock_price(ticker),
+        "source": "mock",
+    }
 
 
 def get_stock_prices(tickers: list[str]) -> list[StockPrice]:

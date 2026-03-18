@@ -1,6 +1,13 @@
-import { api } from "./api";
+import { post, api } from "./api";
 import { useAuthStore } from "../stores/authStore";
-import type { LoginResponse, UserProfile } from "../types/auth";
+import type { LoginResponse, RegisterRequest, UserProfile } from "../types/auth";
+
+export const registerUser = async (payload: RegisterRequest) => {
+  return post<UserProfile | Record<string, unknown>, RegisterRequest>(
+    "/api/auth/register/",
+    payload
+  );
+};
 
 export const fetchCurrentUser = async () => {
   const response = await api.get<UserProfile>("/api/auth/me/");

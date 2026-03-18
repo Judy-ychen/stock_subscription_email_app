@@ -2,6 +2,7 @@ import axios from "axios";
 import type {
   AxiosError,
   AxiosInstance,
+  AxiosResponse,
   InternalAxiosRequestConfig,
 } from "axios";
 import { useAuthStore } from "../stores/authStore";
@@ -100,3 +101,22 @@ api.interceptors.response.use(
     return api(originalRequest);
   }
 );
+
+// typed helpers
+export const get = async <T>(url: string): Promise<T> => {
+  const response: AxiosResponse<T> = await api.get(url);
+  return response.data;
+};
+
+export const post = async <TResponse, TRequest = unknown>(
+  url: string,
+  data?: TRequest
+): Promise<TResponse> => {
+  const response: AxiosResponse<TResponse> = await api.post(url, data);
+  return response.data;
+};
+
+export const del = async <TResponse = void>(url: string): Promise<TResponse> => {
+  const response: AxiosResponse<TResponse> = await api.delete(url);
+  return response.data;
+};
