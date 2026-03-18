@@ -24,6 +24,7 @@
 - **Admin role uses Django built-in `is_staff`**  
   No custom role system to avoid duplication and maintain DRF compatibility.
 
+
   ## Tradeoffs
 
 | Decision | Alternative | Why chosen | Tradeoff |
@@ -68,6 +69,16 @@
 
 - **Fallback-first design**  
   Both stock data (yfinance) and AI recommendation include fallback logic to ensure system availability.
+
+## Bonus Feature: Price Alerts
+
+### What it is
+
+Users set an upper and/or lower price threshold per ticker. A Celery task polls prices every minute; when a threshold is crossed, an immediate email is sent and the alert is marked triggered.
+
+### Why this feature
+
+It directly addresses the trigger-based notification business model: condition evaluation → asynchronous delivery, independent of the scheduled hourly send. It also showcases the part of the stack that is hardest to fake in an interview — a real background worker responding to real-world data in near-real-time.
 
 ## Scalability Path
 
