@@ -10,6 +10,8 @@ from collections import defaultdict
 
 from celery import shared_task
 from django.utils import timezone
+from apps.stocks.services import get_stock_snapshot
+from apps.ai_recommendations.services import get_recommendation
 
 logger = logging.getLogger(__name__)
 
@@ -36,40 +38,39 @@ def _send_to_recipient(recipient_email: str, tickers: list[str], triggered_by: s
     Fetch prices + AI recommendations, render HTML email, send it, log result.
     This is the core logic shared by both scheduled and send_now paths.
     """
-    from apps.stocks.services import get_stock_prices
-    from apps.ai_recommendations.services import get_recommendation
     from apps.notifications.email import render_and_send_email
     from apps.subscriptions.models import EmailLog
 
     try:
-        # 1. Fetch prices for all tickers
-        price_data = get_stock_prices(tickers)
-
-        # 2. Get AI recommendation for each ticker
+        # 1. Fetch stock snapshot + AI recommendation for each ticker
         stock_updates = []
-        for item in price_data:
-            ticker = item["ticker"]
-            price  = item["price"]
-            source = item["source"]
 
-            rec = get_recommendation(ticker=ticker, price=price)
+        for ticker in tickers:
+            snapshot = get_stock_snapshot(ticker)
+
+            rec = get_recommendation(
+                ticker=ticker,
+                current_price=snapshot["price"],
+                previous_close=snapshot["previous_close"],
+            )
 
             stock_updates.append({
-                "ticker":         ticker,
-                "price":          price,
-                "source":         source,
+                "ticker": ticker,
+                "price": snapshot["price"],
+                "source": snapshot["source"],              # price source
+                "previous_close": snapshot["previous_close"],
                 "recommendation": rec["recommendation"],
-                "reason":         rec["reason"],
-                "rec_source":     rec["source"],
+                "reason": rec["reason"],
+                "rec_source": rec["source"],              # recommendation source
             })
 
-        # 3. Render and send the merged HTML email
+        # 2. Render and send the merged HTML email
         render_and_send_email(
             recipient_email=recipient_email,
             stock_updates=stock_updates,
         )
 
-        # 4. Log success
+        # 3. Log success
         EmailLog.objects.create(
             recipient    = recipient_email,
             tickers      = tickers,

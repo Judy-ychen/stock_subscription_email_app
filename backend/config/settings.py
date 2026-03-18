@@ -57,6 +57,12 @@ INSTALLED_APPS = [
     "apps.notifications",
 ]
 
+# AI / OpenRouter
+OPENROUTER_API_KEY = env("OPENROUTER_API_KEY", default="")
+AI_MODEL = env("AI_MODEL", default="arcee-ai/trinity-mini:free")
+AI_TIMEOUT_SECONDS = env.int("AI_TIMEOUT_SECONDS", default=15)
+AI_BASE_URL = env("AI_BASE_URL", default="https://openrouter.ai/api/v1")
+
 # Email settings
 DEFAULT_FROM_EMAIL = "noreply@stockalert.dev"
 EMAIL_BACKEND = env(

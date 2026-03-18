@@ -159,3 +159,51 @@ def get_stock_prices(tickers: list[str]) -> list[StockPrice]:
     Used by the Celery email task to avoid repeated single calls.
     """
     return [get_stock_price(t) for t in tickers]
+
+
+def get_stock_snapshot(ticker: str) -> dict:
+    ticker = ticker.upper().strip()
+
+    if _is_mock_mode():
+        price = _mock_price(ticker)
+        previous_close = round(price / 1.01, 2)
+        return {
+            "ticker": ticker,
+            "price": price,
+            "previous_close": previous_close,
+            "source": "mock",
+        }
+
+    try:
+        import yfinance as yf
+
+        obj = yf.Ticker(ticker)
+        fast = obj.fast_info
+
+        current_price = getattr(fast, "last_price", None) or getattr(fast, "lastPrice", None)
+        previous_close = getattr(fast, "previous_close", None) or getattr(fast, "previousClose", None)
+
+        if current_price is None or previous_close is None:
+            hist = obj.history(period="5d")
+            if hist.empty:
+                raise ValueError("No historical data returned")
+            current_price = float(hist["Close"].iloc[-1])
+            previous_close = float(hist["Close"].iloc[-2]) if len(hist) >= 2 else current_price
+
+        return {
+            "ticker": ticker,
+            "price": float(current_price),
+            "previous_close": float(previous_close),
+            "source": "yfinance",
+        }
+
+    except Exception as exc:
+        logger.warning("get_stock_snapshot failed for %s: %s", ticker, exc)
+        price = _mock_price(ticker)
+        previous_close = round(price / 1.01, 2)
+        return {
+            "ticker": ticker,
+            "price": price,
+            "previous_close": previous_close,
+            "source": "mock",
+        }

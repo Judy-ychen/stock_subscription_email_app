@@ -11,3 +11,4 @@ psycopg2-binary==2.9.10
 gunicorn==23.0
 whitenoise==6.7
 setuptools<81
+openai>=1.0.0
