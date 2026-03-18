@@ -78,7 +78,7 @@ Users set an upper and/or lower price threshold per ticker. A Celery task polls 
 
 ### Why this feature
 
-It directly addresses the trigger-based notification business model: condition evaluation → asynchronous delivery, independent of the scheduled hourly send. It also showcases the part of the stack that is hardest to fake in an interview — a real background worker responding to real-world data in near-real-time.
+It directly addresses the trigger-based notification business model: condition evaluation → asynchronous delivery, independent of the scheduled hourly send. It also showcases a real background worker responding to real-world data in near-real-time.
 
 ## Scalability Path
 
