@@ -7,6 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
 
 from .serializers import RegisterSerializer, UserProfileSerializer
 
@@ -37,10 +39,18 @@ class MeView(APIView):
     GET  /api/auth/me/  → return current user profile
     PATCH /api/auth/me/ → update first_name / last_name
     """
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(UserProfileSerializer(request.user).data)
+        user = request.user
+        return Response({
+            "id": user.id,
+            "email": user.email,
+            "is_staff": user.is_staff,
+            "is_superuser": user.is_superuser,
+        })
+        
 
     def patch(self, request):
         serializer = UserProfileSerializer(
