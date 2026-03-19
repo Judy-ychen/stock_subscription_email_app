@@ -180,7 +180,7 @@ export default function SubscriptionDashboard() {
         if (!result.valid) {
           setTickerError("Invalid ticker symbol.");
         }
-      } catch (error) {
+      } catch {
         if (cancelled) return;
         setTickerValid(null);
         setTickerError("Ticker validation failed. Please try again.");
@@ -365,66 +365,73 @@ export default function SubscriptionDashboard() {
             <div className="overflow-x-auto rounded-md border">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium">Ticker</th>
-                    <th className="px-4 py-3 text-left font-medium">Current Price</th>
-                    <th className="px-4 py-3 text-left font-medium">Recipient Email</th>
-                    <th className="px-4 py-3 text-left font-medium">Actions</th>
-                  </tr>
+                    <tr>
+                        <th className="px-4 py-3 text-left font-medium">Ticker</th>
+                        <th className="px-4 py-3 text-left font-medium">Current Price</th>
+                        <th className="px-4 py-3 text-left font-medium">Recipient Email</th>
+                        {isAdmin && (
+                        <th className="px-4 py-3 text-left font-medium">Owner</th>
+                        )}
+                        <th className="px-4 py-3 text-left font-medium">Actions</th>
+                    </tr>
                 </thead>
 
                 <tbody>
-                  {subscriptions.map((sub) => {
-                    const priceData = priceMap[sub.ticker.toUpperCase()];
-                    const isRowBusy = actionLoadingId === sub.id;
+                    {subscriptions.map((sub) => {
+                        const priceData = priceMap[sub.ticker.toUpperCase()];
+                        const isRowBusy = actionLoadingId === sub.id;
 
-                    return (
-                      <tr key={sub.id} className="border-t">
-                        <td className="px-4 py-3 font-medium">{sub.ticker}</td>
+                        return (
+                        <tr key={sub.id} className="border-t">
+                            <td className="px-4 py-3 font-medium">{sub.ticker}</td>
 
-                        <td className="px-4 py-3">
-                          {priceData ? (
-                            priceData.price !== null ? (
-                              <div className="flex flex-col">
-                                <span>${priceData.price}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  source: {priceData.source}
-                                </span>
-                              </div>
+                            <td className="px-4 py-3">
+                            {priceData ? (
+                                priceData.price !== null ? (
+                                <div className="flex flex-col">
+                                    <span>${priceData.price}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                    source: {priceData.source}
+                                    </span>
+                                </div>
+                                ) : (
+                                <span className="text-red-600">Invalid ticker</span>
+                                )
                             ) : (
-                              <span className="text-red-600">Invalid ticker</span>
-                            )
-                          ) : (
-                            <Skeleton className="h-4 w-20" />
-                          )}
-                        </td>
+                                <Skeleton className="h-4 w-20" />
+                            )}
+                            </td>
 
-                        <td className="px-4 py-3">{sub.email}</td>
+                            <td className="px-4 py-3">{sub.email}</td>
 
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => void handleSendNow(sub.id)}
-                              disabled={isRowBusy}
-                            >
-                              {isRowBusy ? "Working..." : "Send Now"}
-                            </Button>
+                            {isAdmin && (
+                            <td className="px-4 py-3">{sub.user_email ?? "-"}</td>
+                            )}
 
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => void handleDelete(sub.id)}
-                              disabled={isRowBusy}
-                            >
-                              {isRowBusy ? "Working..." : "Delete"}
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            <td className="px-4 py-3">
+                            <div className="flex gap-2">
+                                <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void handleSendNow(sub.id)}
+                                disabled={isRowBusy}
+                                >
+                                {isRowBusy ? "Working..." : "Send Now"}
+                                </Button>
+
+                                <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => void handleDelete(sub.id)}
+                                disabled={isRowBusy}
+                                >
+                                {isRowBusy ? "Working..." : "Delete"}
+                                </Button>
+                            </div>
+                            </td>
+                        </tr>
+                        );
+                    })}
                 </tbody>
               </table>
             </div>

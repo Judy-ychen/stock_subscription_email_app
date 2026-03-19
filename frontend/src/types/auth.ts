@@ -17,7 +17,7 @@ export type RefreshResponse = {
 export type RegisterRequest = {
   email: string;
   password: string;
-  password_confirm?: string;
+  password2: string;
 };
 
 export type AuthState = {

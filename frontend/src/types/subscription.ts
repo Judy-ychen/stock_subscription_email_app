@@ -3,6 +3,7 @@ export type Subscription = {
   ticker: string;
   email: string;
   user?: number;
+  user_email?: string;
   created_at?: string;
 };
 

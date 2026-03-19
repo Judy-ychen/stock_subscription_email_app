@@ -4,10 +4,12 @@ from .models import Subscription
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+
     class Meta:
         model  = Subscription
-        fields = ["id", "ticker", "email", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        fields = ["id", "ticker", "email", "created_at", "user_email"]
+        read_only_fields = ["id", "created_at", "user_email"]
 
     def validate_ticker(self, value):
         ticker = value.upper().strip()

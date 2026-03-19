@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Toaster } from "sonner";
 
+import RegisterForm from "./components/auth/RegisterForm";
 import { loginUser, logoutUser } from "./lib/authApi";
 import { useAuthStore } from "./stores/authStore";
 import SubscriptionDashboard from "./components/subscriptions/SubscriptionDashboard";
@@ -15,6 +16,8 @@ function App() {
   const [password, setPassword] = useState("12345678");
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [loginSuccessMessage, setLoginSuccessMessage] = useState("");
 
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -26,6 +29,7 @@ function App() {
 
     try {
       await loginUser(email, password);
+      setLoginSuccessMessage("");
     } catch {
       setLoginError("Login failed. Please check your credentials.");
     } finally {
@@ -35,6 +39,10 @@ function App() {
 
   const handleLogout = () => {
     logoutUser();
+    setLoginError("");
+    setLoginSuccessMessage("");
+    setPassword("");
+    setAuthMode("login");
   };
 
   return (
@@ -63,46 +71,89 @@ function App() {
         </div>
 
         {!isAuthenticated ? (
-          <Card className="max-w-md">
-            <CardHeader>
-              <CardTitle>Login</CardTitle>
-              <CardDescription>
-                Sign in to access your subscription dashboard.
-              </CardDescription>
-            </CardHeader>
+          authMode === "login" ? (
+            <Card className="max-w-md">
+              <CardHeader>
+                <CardTitle>Login</CardTitle>
+                <CardDescription>
+                  Sign in to access your subscription dashboard.
+                </CardDescription>
+              </CardHeader>
 
-            <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
+              <CardContent>
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setLoginError("");
+                        setLoginSuccessMessage("");
+                      }}
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password">Password</Label>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setLoginError("");
+                        setLoginSuccessMessage("");
+                      }}
+                    />
+                  </div>
 
-                {loginError && (
-                  <p className="text-sm text-red-600">{loginError}</p>
-                )}
+                  {loginError && (
+                    <p className="text-sm text-red-600">{loginError}</p>
+                  )}
 
-                <Button type="submit" className="w-full" disabled={isLoggingIn}>
-                  {isLoggingIn ? "Logging in..." : "Login"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                  {loginSuccessMessage && (
+                    <p className="text-sm text-green-600">{loginSuccessMessage}</p>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1" disabled={isLoggingIn}>
+                      {isLoggingIn ? "Logging in..." : "Login"}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setAuthMode("register");
+                        setLoginError("");
+                        setLoginSuccessMessage("");
+                      }}
+                    >
+                      Register
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          ) : (
+            <RegisterForm
+              onSuccess={(registeredEmail) => {
+                setAuthMode("login");
+                setEmail(registeredEmail);
+                setPassword("");
+                setLoginError("");
+                setLoginSuccessMessage("Registration succeeded. Please log in.");
+              }}
+              onBackToLogin={() => {
+                setAuthMode("login");
+                setLoginError("");
+                setLoginSuccessMessage("");
+              }}
+            />
+          )
         ) : (
           <SubscriptionDashboard />
         )}
