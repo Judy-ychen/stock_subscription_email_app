@@ -15,6 +15,14 @@ type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
 };
 
+export const patch = async <TResponse, TRequest = unknown>(
+  url: string,
+  data?: TRequest
+): Promise<TResponse> => {
+  const response = await api.patch<TResponse>(url, data);
+  return response.data;
+};
+
 export const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {

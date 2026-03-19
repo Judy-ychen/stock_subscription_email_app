@@ -5,11 +5,17 @@ export type Subscription = {
   user?: number;
   user_email?: string;
   created_at?: string;
+  target_price_above?: number | null;
+  target_price_below?: number | null;
+  alert_triggered?: boolean;
+  alert_triggered_at?: string | null;
 };
 
 export type CreateSubscriptionRequest = {
   ticker: string;
   email: string;
+  target_price_above?: number | null;
+  target_price_below?: number | null;
 };
 
 export type SendNowResponse = {

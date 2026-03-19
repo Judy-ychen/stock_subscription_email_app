@@ -49,7 +49,7 @@ class EmailLog(models.Model):
     sent_at     = models.DateTimeField(auto_now_add=True)
     triggered_by = models.CharField(
         max_length=20,
-        default="scheduled",                      # "scheduled" | "send_now"
+        default="scheduled",                      # "scheduled" | "send_now" | "price alert"
     )
 
     def __str__(self):

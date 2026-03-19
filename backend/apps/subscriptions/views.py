@@ -22,7 +22,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
     serializer_class   = SubscriptionSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
-    http_method_names  = ["get", "post", "delete", "head", "options"]
+    http_method_names  = ["get", "post", "delete", "patch", "head", "options"]
 
     def get_queryset(self):
         user = self.request.user
@@ -31,7 +31,24 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         return Subscription.objects.filter(user=user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        subscription = serializer.save(user=self.request.user)
+        # trigger check_alert after create new subscription
+        if (
+            subscription.target_price_above is not None
+            or subscription.target_price_below is not None
+        ):
+            from apps.notifications.tasks import check_single_price_alert
+            check_single_price_alert.delay(subscription.id)
+
+    def perform_update(self, serializer):
+        subscription = serializer.save()
+        # trigger check_alert after update alert
+        if (
+            subscription.target_price_above is not None
+            or subscription.target_price_below is not None
+        ):
+            from apps.notifications.tasks import check_single_price_alert
+            check_single_price_alert.delay(subscription.id)
 
     # ── send_now ──────────────────────────────────────────────────────────────
     @action(detail=True, methods=["post"], url_path="send_now")

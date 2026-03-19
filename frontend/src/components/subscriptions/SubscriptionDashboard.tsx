@@ -5,6 +5,7 @@ import { useAuthStore } from "../../stores/authStore";
 import {
   fetchSubscriptions,
   createSubscription,
+  updateSubscription,
   deleteSubscription,
   sendNowSubscription,
 } from "../../lib/subscriptionApi";
@@ -46,6 +47,20 @@ function getApiErrorMessage(error: unknown): string {
       return String(data.email[0]);
     }
 
+    if (
+      Array.isArray(data.target_price_above) &&
+      data.target_price_above.length > 0
+    ) {
+      return String(data.target_price_above[0]);
+    }
+
+    if (
+      Array.isArray(data.target_price_below) &&
+      data.target_price_below.length > 0
+    ) {
+      return String(data.target_price_below[0]);
+    }
+
     if (typeof data.detail === "string") {
       return data.detail;
     }
@@ -60,6 +75,24 @@ function getApiErrorMessage(error: unknown): string {
   }
 
   return fallback;
+}
+
+function formatAlert(sub: Subscription) {
+  const parts: string[] = [];
+
+  if (sub.target_price_above != null) {
+    parts.push(`> $${sub.target_price_above}`);
+  }
+
+  if (sub.target_price_below != null) {
+    parts.push(`< $${sub.target_price_below}`);
+  }
+
+  if (parts.length === 0) {
+    return "—";
+  }
+
+  return parts.join(" | ");
 }
 
 export default function SubscriptionDashboard() {
@@ -77,6 +110,9 @@ export default function SubscriptionDashboard() {
 
   const [tickerInput, setTickerInput] = useState("");
   const [recipientEmail, setRecipientEmail] = useState(user?.email ?? "");
+  const [targetPriceAbove, setTargetPriceAbove] = useState("");
+  const [targetPriceBelow, setTargetPriceBelow] = useState("");
+  const [editingSubscriptionId, setEditingSubscriptionId] = useState<number | null>(null);
 
   const debouncedTicker = useDebounce(tickerInput, 500);
 
@@ -85,7 +121,23 @@ export default function SubscriptionDashboard() {
 
   const [tickerError, setTickerError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [aboveError, setAboveError] = useState("");
+  const [belowError, setBelowError] = useState("");
   const [formError, setFormError] = useState("");
+
+  const resetForm = () => {
+    setEditingSubscriptionId(null);
+    setTickerInput("");
+    setRecipientEmail(user?.email ?? "");
+    setTargetPriceAbove("");
+    setTargetPriceBelow("");
+    setTickerValid(null);
+    setTickerError("");
+    setEmailError("");
+    setAboveError("");
+    setBelowError("");
+    setFormError("");
+  };
 
   const canSubmit = useMemo(() => {
     return (
@@ -98,13 +150,11 @@ export default function SubscriptionDashboard() {
 
   useEffect(() => {
     if (!user?.email) return;
-    setRecipientEmail((prev) => prev || user.email);
+    setRecipientEmail(user.email);
   }, [user]);
 
   const loadPrices = async (subs: Subscription[]) => {
-    const uniqueTickers = Array.from(
-      new Set(subs.map((sub) => sub.ticker.toUpperCase()))
-    );
+    const uniqueTickers = Array.from(new Set(subs.map((sub) => sub.ticker.toUpperCase())));
 
     if (uniqueTickers.length === 0) {
       setPriceMap({});
@@ -203,10 +253,17 @@ export default function SubscriptionDashboard() {
 
     setTickerError("");
     setEmailError("");
+    setAboveError("");
+    setBelowError("");
     setFormError("");
 
     const normalizedTicker = tickerInput.trim().toUpperCase();
     const normalizedEmail = recipientEmail.trim().toLowerCase();
+
+    const parsedAbove =
+      targetPriceAbove.trim() === "" ? null : Number(targetPriceAbove);
+    const parsedBelow =
+      targetPriceBelow.trim() === "" ? null : Number(targetPriceBelow);
 
     if (!normalizedTicker) {
       setTickerError("Ticker is required.");
@@ -223,18 +280,44 @@ export default function SubscriptionDashboard() {
       return;
     }
 
+    if (parsedAbove !== null && (Number.isNaN(parsedAbove) || parsedAbove <= 0)) {
+      setAboveError("Upper alert price must be greater than 0.");
+      return;
+    }
+
+    if (parsedBelow !== null && (Number.isNaN(parsedBelow) || parsedBelow <= 0)) {
+      setBelowError("Lower alert price must be greater than 0.");
+      return;
+    }
+
+    if (
+      parsedAbove !== null &&
+      parsedBelow !== null &&
+      parsedBelow >= parsedAbove
+    ) {
+      setFormError("Lower alert price must be less than upper alert price.");
+      return;
+    }
+
     setIsCreating(true);
 
     try {
-      await createSubscription({
+      const payload = {
         ticker: normalizedTicker,
         email: normalizedEmail,
-      });
+        target_price_above: parsedAbove,
+        target_price_below: parsedBelow,
+      };
 
-      toast.success("Subscription created.");
-      setTickerInput("");
-      setTickerValid(null);
-      setTickerError("");
+      if (editingSubscriptionId !== null) {
+        await updateSubscription(editingSubscriptionId, payload);
+        toast.success("Subscription alert updated.");
+      } else {
+        await createSubscription(payload);
+        toast.success("Subscription created.");
+      }
+
+      resetForm();
       await loadSubscriptions();
     } catch (error) {
       const message = getApiErrorMessage(error);
@@ -243,6 +326,24 @@ export default function SubscriptionDashboard() {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleEdit = (sub: Subscription) => {
+    setEditingSubscriptionId(sub.id);
+    setTickerInput(sub.ticker);
+    setRecipientEmail(sub.email);
+    setTargetPriceAbove(
+      sub.target_price_above != null ? String(sub.target_price_above) : ""
+    );
+    setTargetPriceBelow(
+      sub.target_price_below != null ? String(sub.target_price_below) : ""
+    );
+    setTickerValid(true);
+    setTickerError("");
+    setEmailError("");
+    setAboveError("");
+    setBelowError("");
+    setFormError("");
   };
 
   const handleDelete = async (id: number) => {
@@ -285,7 +386,12 @@ export default function SubscriptionDashboard() {
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-3">
+          {editingSubscriptionId !== null && (
+            <p className="mb-4 text-sm text-muted-foreground">
+              Editing subscription #{editingSubscriptionId}
+            </p>
+          )}
+          <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <div className="space-y-2">
               <Label htmlFor="ticker">Ticker</Label>
               <Input
@@ -296,7 +402,8 @@ export default function SubscriptionDashboard() {
                   setTickerError("");
                   setFormError("");
                 }}
-                placeholder="AAPL"
+                placeholder="Ticker"
+                disabled={editingSubscriptionId !== null}
               />
               {isValidatingTicker && (
                 <p className="text-sm text-muted-foreground">Validating ticker...</p>
@@ -304,9 +411,7 @@ export default function SubscriptionDashboard() {
               {tickerValid === true && !isValidatingTicker && (
                 <p className="text-sm text-green-600">Ticker looks valid.</p>
               )}
-              {tickerError && (
-                <p className="text-sm text-red-600">{tickerError}</p>
-              )}
+              {tickerError && <p className="text-sm text-red-600">{tickerError}</p>}
             </div>
 
             <div className="space-y-2">
@@ -321,20 +426,67 @@ export default function SubscriptionDashboard() {
                   setFormError("");
                 }}
                 placeholder="test@example.com"
+                // disabled={!isAdmin}
+                disabled={true}
               />
-              {emailError && (
-                <p className="text-sm text-red-600">{emailError}</p>
+              {emailError && <p className="text-sm text-red-600">{emailError}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="target_price_above">Alert Above</Label>
+              <Input
+                id="target_price_above"
+                type="number"
+                step="0.01"
+                min="0"
+                value={targetPriceAbove}
+                onChange={(e) => {
+                  setTargetPriceAbove(e.target.value);
+                  setAboveError("");
+                  setFormError("");
+                }}
+                placeholder="Optional"
+              />
+              {aboveError && <p className="text-sm text-red-600">{aboveError}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="target_price_below">Alert Below</Label>
+              <Input
+                id="target_price_below"
+                type="number"
+                step="0.01"
+                min="0"
+                value={targetPriceBelow}
+                onChange={(e) => {
+                  setTargetPriceBelow(e.target.value);
+                  setBelowError("");
+                  setFormError("");
+                }}
+                placeholder="Optional"
+              />
+              {belowError && <p className="text-sm text-red-600">{belowError}</p>}
+            </div>
+
+            <div className="flex items-end gap-2 min-w-0 xl:col-span-2">
+              <Button type="submit" className="flex-1" disabled={!canSubmit}>
+                {isCreating
+                  ? editingSubscriptionId !== null
+                    ? "Saving..."
+                    : "Creating..."
+                  : editingSubscriptionId !== null
+                    ? "Save Alert"
+                    : "Create Subscription"}
+              </Button>
+              {editingSubscriptionId !== null && (
+                <Button type="button" variant="outline" onClick={resetForm} className="shrink-0">
+                  Cancel
+                </Button>
               )}
             </div>
 
-            <div className="flex items-end">
-              <Button type="submit" className="w-full" disabled={!canSubmit}>
-                {isCreating ? "Creating..." : "Create Subscription"}
-              </Button>
-            </div>
-
             {formError && (
-              <div className="md:col-span-3">
+              <div className="md:col-span-2 xl:col-span-5">
                 <p className="text-sm text-red-600">{formError}</p>
               </div>
             )}
@@ -358,80 +510,90 @@ export default function SubscriptionDashboard() {
               <Skeleton className="h-10 w-full" />
             </div>
           ) : subscriptions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No subscriptions yet.
-            </p>
+            <p className="text-sm text-muted-foreground">No subscriptions yet.</p>
           ) : (
             <div className="overflow-x-auto rounded-md border">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
-                    <tr>
-                        <th className="px-4 py-3 text-left font-medium">Ticker</th>
-                        <th className="px-4 py-3 text-left font-medium">Current Price</th>
-                        <th className="px-4 py-3 text-left font-medium">Recipient Email</th>
-                        {isAdmin && (
-                        <th className="px-4 py-3 text-left font-medium">Owner</th>
-                        )}
-                        <th className="px-4 py-3 text-left font-medium">Actions</th>
-                    </tr>
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Ticker</th>
+                    <th className="px-4 py-3 text-left font-medium">Current Price</th>
+                    <th className="px-4 py-3 text-left font-medium">Recipient Email</th>
+                    <th className="px-4 py-3 text-left font-medium">Alert</th>
+                    {isAdmin && (
+                      <th className="px-4 py-3 text-left font-medium">Owner</th>
+                    )}
+                    <th className="px-4 py-3 text-left font-medium">Actions</th>
+                  </tr>
                 </thead>
 
                 <tbody>
-                    {subscriptions.map((sub) => {
-                        const priceData = priceMap[sub.ticker.toUpperCase()];
-                        const isRowBusy = actionLoadingId === sub.id;
+                  {subscriptions.map((sub) => {
+                    const priceData = priceMap[sub.ticker.toUpperCase()];
+                    const isRowBusy = actionLoadingId === sub.id;
 
-                        return (
-                        <tr key={sub.id} className="border-t">
-                            <td className="px-4 py-3 font-medium">{sub.ticker}</td>
+                    return (
+                      <tr key={sub.id} className="border-t">
+                        <td className="px-4 py-3 font-medium">{sub.ticker}</td>
 
-                            <td className="px-4 py-3">
-                            {priceData ? (
-                                priceData.price !== null ? (
-                                <div className="flex flex-col">
-                                    <span>${priceData.price}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                    source: {priceData.source}
-                                    </span>
-                                </div>
-                                ) : (
-                                <span className="text-red-600">Invalid ticker</span>
-                                )
+                        <td className="px-4 py-3">
+                          {priceData ? (
+                            priceData.price !== null ? (
+                              <div className="flex flex-col">
+                                <span>${priceData.price}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  source: {priceData.source}
+                                </span>
+                              </div>
                             ) : (
-                                <Skeleton className="h-4 w-20" />
-                            )}
-                            </td>
+                              <span className="text-red-600">Invalid ticker</span>
+                            )
+                          ) : (
+                            <Skeleton className="h-4 w-20" />
+                          )}
+                        </td>
 
-                            <td className="px-4 py-3">{sub.email}</td>
+                        <td className="px-4 py-3">{sub.email}</td>
 
-                            {isAdmin && (
-                            <td className="px-4 py-3">{sub.user_email ?? "-"}</td>
-                            )}
+                        <td className="px-4 py-3">{formatAlert(sub)}</td>
 
-                            <td className="px-4 py-3">
-                            <div className="flex gap-2">
-                                <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => void handleSendNow(sub.id)}
-                                disabled={isRowBusy}
-                                >
-                                {isRowBusy ? "Working..." : "Send Now"}
-                                </Button>
+                        {isAdmin && (
+                          <td className="px-4 py-3">{sub.user_email ?? "-"}</td>
+                        )}
 
-                                <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => void handleDelete(sub.id)}
-                                disabled={isRowBusy}
-                                >
-                                {isRowBusy ? "Working..." : "Delete"}
-                                </Button>
-                            </div>
-                            </td>
-                        </tr>
-                        );
-                    })}
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(sub)}
+                              disabled={isRowBusy}
+                            >
+                              Edit Alert
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void handleSendNow(sub.id)}
+                              disabled={isRowBusy}
+                            >
+                              {isRowBusy ? "Working..." : "Send Now"}
+                            </Button>
+
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => void handleDelete(sub.id)}
+                              disabled={isRowBusy}
+                            >
+                              {isRowBusy ? "Working..." : "Delete"}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -7,15 +7,22 @@ send_stock_email_task  — called directly by the send_now API action
 
 import logging
 from collections import defaultdict
+from collections.abc import Iterable
 
 from celery import shared_task
 from django.utils import timezone
 from apps.stocks.services import get_stock_snapshot, get_stock_price
 from apps.ai_recommendations.services import get_recommendation
 from apps.subscriptions.models import Subscription, EmailLog
-from apps.notifications.email import render_and_send_price_alert_email
+from apps.notifications.email import render_and_send_email, render_and_send_price_alert_email
 
 logger = logging.getLogger(__name__)
+
+def group_subscriptions_by_email(subscriptions: Iterable[Subscription]):
+    grouped: dict[str, list[Subscription]] = defaultdict(list)
+    for sub in subscriptions:
+        grouped[sub.email].append(sub)
+    return grouped
 
 
 # ── Shared core logic ─────────────────────────────────────────────────────────
@@ -145,8 +152,86 @@ def send_stock_email_task(recipient_email: str, tickers: list[str], triggered_by
         triggered_by=triggered_by,
     )
 
+
+def process_price_alert_for_subscription(sub: Subscription) -> bool:
+    if sub.alert_triggered:
+        return False
+
+    if sub.target_price_above is None and sub.target_price_below is None:
+        return False
+
+    price_data = get_stock_price(sub.ticker)
+    current_price = price_data["price"]
+
+    if current_price is None:
+        return False
+
+    triggered = False
+    direction = None
+    threshold = None
+
+    if (
+        sub.target_price_above is not None
+        and float(current_price) >= float(sub.target_price_above)
+    ):
+        triggered = True
+        direction = "above"
+        threshold = float(sub.target_price_above)
+
+    if (
+        sub.target_price_below is not None
+        and float(current_price) <= float(sub.target_price_below)
+    ):
+        triggered = True
+        direction = "below"
+        threshold = float(sub.target_price_below)
+
+    if not triggered or direction is None or threshold is None:
+        return False
+
+    try:
+        render_and_send_price_alert_email(
+            recipient_email=sub.email,
+            ticker=sub.ticker,
+            current_price=float(current_price),
+            threshold=threshold,
+            direction=direction,
+            price_source=price_data["source"],
+        )
+
+        sub.alert_triggered = True
+        sub.alert_triggered_at = timezone.now()
+        sub.save(update_fields=["alert_triggered", "alert_triggered_at"])
+
+        EmailLog.objects.create(
+            recipient=sub.email,
+            tickers=[sub.ticker],
+            status=EmailLog.Status.SUCCESS,
+            error="",
+            triggered_by="price_alert",
+        )
+        return True
+
+    except Exception as exc:
+        EmailLog.objects.create(
+            recipient=sub.email,
+            tickers=[sub.ticker],
+            status=EmailLog.Status.FAILED,
+            error=str(exc),
+            triggered_by="price_alert",
+        )
+        logger.error(
+            "Failed to send price alert to %s for %s: %s",
+            sub.email,
+            sub.ticker,
+            exc,
+            exc_info=True,
+        )
+        return False
+    
+
 # Bonus Feature: Price Alerts
-@shared_task(name="notifications.send_scheduled_stock_alerts")
+@shared_task(name="notifications.send_scheduled_grouped_stock_alerts")
 def send_scheduled_grouped_stock_emails():
     """
     Batch scheduled task:
@@ -189,66 +274,16 @@ def check_price_alerts():
     candidates = Subscription.objects.filter(alert_triggered=False)
 
     for sub in candidates:
-        price_data = get_stock_price(sub.ticker)
-        current_price = price_data["price"]
+        process_price_alert_for_subscription(sub)
 
-        if current_price is None:
-            continue
+@shared_task(name="notifications.check_single_price_alert")
+def check_single_price_alert(subscription_id: int):
+    try:
+        sub = Subscription.objects.get(pk=subscription_id)
+    except Subscription.DoesNotExist:
+        return
 
-        triggered = False
-        direction = None
-        threshold = None
+    if sub.alert_triggered:
+        return
 
-        if (
-            sub.target_price_above is not None
-            and current_price >= float(sub.target_price_above)
-        ):
-            triggered = True
-            direction = "above"
-            threshold = float(sub.target_price_above)
-
-        if (
-            sub.target_price_below is not None
-            and current_price <= float(sub.target_price_below)
-        ):
-            triggered = True
-            direction = "below"
-            threshold = float(sub.target_price_below)
-
-        if not triggered:
-            continue
-
-        try:
-            render_and_send_price_alert_email(
-                recipient_email=sub.email,
-                ticker=sub.ticker,
-                current_price=current_price,
-                threshold=threshold,
-                direction=direction,
-                price_source=price_data["source"],
-            )
-
-            sub.alert_triggered = True
-            sub.alert_triggered_at = timezone.now()
-            sub.save(update_fields=["alert_triggered", "alert_triggered_at"])
-
-            EmailLog.objects.create(
-                recipient=sub.email,
-                tickers=[sub.ticker],
-                status=EmailLog.Status.SUCCESS,
-                error="",
-                triggered_by="price_alert",
-            )
-
-        except Exception as exc:
-            EmailLog.objects.create(
-                recipient=sub.email,
-                tickers=[sub.ticker],
-                status=EmailLog.Status.FAILED,
-                error=str(exc),
-                triggered_by="price_alert",
-            )
-
-        sub.alert_triggered = True
-        sub.alert_triggered_at = timezone.now()
-        sub.save(update_fields=["alert_triggered", "alert_triggered_at"])
+    process_price_alert_for_subscription(sub)

@@ -1,4 +1,4 @@
-import { del, get, post } from "./api";
+import { del, get, post, patch } from "./api";
 import type {
   CreateSubscriptionRequest,
   SendNowResponse,
@@ -14,6 +14,16 @@ export const createSubscription = async (
 ): Promise<Subscription> => {
   return post<Subscription, CreateSubscriptionRequest>(
     "/api/subscriptions/",
+    payload
+  );
+};
+
+export const updateSubscription = async (
+  id: number,
+  payload: Partial<CreateSubscriptionRequest>
+): Promise<Subscription> => {
+  return patch<Subscription, Partial<CreateSubscriptionRequest>>(
+    `/api/subscriptions/${id}/`,
     payload
   );
 };
