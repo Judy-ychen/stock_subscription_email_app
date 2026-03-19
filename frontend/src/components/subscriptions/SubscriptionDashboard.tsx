@@ -387,106 +387,120 @@ export default function SubscriptionDashboard() {
 
         <CardContent>
           {editingSubscriptionId !== null && (
-            <p className="mb-4 text-sm text-muted-foreground">
+            <p className="mb-4 text-center text-sm text-muted-foreground">
               Editing subscription #{editingSubscriptionId}
             </p>
           )}
-          <form onSubmit={handleCreate} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <div className="space-y-2">
-              <Label htmlFor="ticker">Ticker</Label>
-              <Input
-                id="ticker"
-                value={tickerInput}
-                onChange={(e) => {
-                  setTickerInput(e.target.value.toUpperCase());
-                  setTickerError("");
-                  setFormError("");
-                }}
-                placeholder="Ticker"
-                disabled={editingSubscriptionId !== null}
-              />
-              {isValidatingTicker && (
-                <p className="text-sm text-muted-foreground">Validating ticker...</p>
-              )}
-              {tickerValid === true && !isValidatingTicker && (
-                <p className="text-sm text-green-600">Ticker looks valid.</p>
-              )}
-              {tickerError && <p className="text-sm text-red-600">{tickerError}</p>}
+
+          <form onSubmit={handleCreate} className="space-y-6">
+            <div className="mx-auto grid w-full max-w-5xl gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="ticker">Ticker</Label>
+                <Input
+                  id="ticker"
+                  value={tickerInput}
+                  onChange={(e) => {
+                    setTickerInput(e.target.value.toUpperCase());
+                    setTickerError("");
+                    setFormError("");
+                  }}
+                  placeholder="Ticker"
+                  disabled={editingSubscriptionId !== null}
+                />
+                {isValidatingTicker && (
+                  <p className="text-sm text-muted-foreground">Validating ticker...</p>
+                )}
+                {tickerValid === true && !isValidatingTicker && (
+                  <p className="text-sm text-green-600">Ticker looks valid.</p>
+                )}
+                {tickerError && <p className="text-sm text-red-600">{tickerError}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Recipient Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={recipientEmail}
+                  onChange={(e) => {
+                    setRecipientEmail(e.target.value);
+                    setEmailError("");
+                    setFormError("");
+                  }}
+                  placeholder="test@example.com"
+                  disabled
+                />
+                {emailError && <p className="text-sm text-red-600">{emailError}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="target_price_above">Alert Above</Label>
+                <Input
+                  id="target_price_above"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={targetPriceAbove}
+                  onChange={(e) => {
+                    setTargetPriceAbove(e.target.value);
+                    setAboveError("");
+                    setFormError("");
+                  }}
+                  placeholder="Optional"
+                />
+                {aboveError && <p className="text-sm text-red-600">{aboveError}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="target_price_below">Alert Below</Label>
+                <Input
+                  id="target_price_below"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={targetPriceBelow}
+                  onChange={(e) => {
+                    setTargetPriceBelow(e.target.value);
+                    setBelowError("");
+                    setFormError("");
+                  }}
+                  placeholder="Optional"
+                />
+                {belowError && <p className="text-sm text-red-600">{belowError}</p>}
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Recipient Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={recipientEmail}
-                onChange={(e) => {
-                  setRecipientEmail(e.target.value);
-                  setEmailError("");
-                  setFormError("");
-                }}
-                placeholder="test@example.com"
-                // disabled={!isAdmin}
-                disabled={true}
-              />
-              {emailError && <p className="text-sm text-red-600">{emailError}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="target_price_above">Alert Above</Label>
-              <Input
-                id="target_price_above"
-                type="number"
-                step="0.01"
-                min="0"
-                value={targetPriceAbove}
-                onChange={(e) => {
-                  setTargetPriceAbove(e.target.value);
-                  setAboveError("");
-                  setFormError("");
-                }}
-                placeholder="Optional"
-              />
-              {aboveError && <p className="text-sm text-red-600">{aboveError}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="target_price_below">Alert Below</Label>
-              <Input
-                id="target_price_below"
-                type="number"
-                step="0.01"
-                min="0"
-                value={targetPriceBelow}
-                onChange={(e) => {
-                  setTargetPriceBelow(e.target.value);
-                  setBelowError("");
-                  setFormError("");
-                }}
-                placeholder="Optional"
-              />
-              {belowError && <p className="text-sm text-red-600">{belowError}</p>}
-            </div>
-
-            <div className="flex items-end gap-2 min-w-0 xl:col-span-2">
-              <Button type="submit" className="flex-1" disabled={!canSubmit}>
-                {isCreating
-                  ? editingSubscriptionId !== null
-                    ? "Saving..."
-                    : "Creating..."
-                  : editingSubscriptionId !== null
-                    ? "Save Alert"
-                    : "Create Subscription"}
-              </Button>
-              {editingSubscriptionId !== null && (
-                <Button type="button" variant="outline" onClick={resetForm} className="shrink-0">
-                  Cancel
+            <div className="flex justify-center">
+              <div className="flex w-full max-w-md gap-3">
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={!canSubmit}
+                >
+                  {isCreating
+                    ? editingSubscriptionId !== null
+                      ? "Saving..."
+                      : "Creating..."
+                    : editingSubscriptionId !== null
+                      ? "Save Alert"
+                      : "Create Subscription"}
                 </Button>
-              )}
+
+                {editingSubscriptionId !== null && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetForm}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
             </div>
 
             {formError && (
-              <div className="md:col-span-2 xl:col-span-5">
+              <div className="flex justify-center">
                 <p className="text-sm text-red-600">{formError}</p>
               </div>
             )}
