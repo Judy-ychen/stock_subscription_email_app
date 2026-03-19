@@ -8,8 +8,9 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Subscription
-        fields = ["id", "ticker", "email", "created_at", "user_email"]
-        read_only_fields = ["id", "created_at", "user_email"]
+        fields = ["id", "ticker", "email", "created_at", "user_email", "target_price_above", 
+                  "target_price_below", "alert_triggered", "alert_triggered_at",]
+        read_only_fields = ["id", "created_at", "user_email", "alert_triggered", "alert_triggered_at",]
 
     def validate_ticker(self, value):
         ticker = value.upper().strip()
@@ -27,6 +28,36 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         ticker = attrs.get("ticker", "").upper().strip()
         email = attrs.get("email", "").strip().lower()
 
+        target_price_above = attrs.get("target_price_above")
+        target_price_below = attrs.get("target_price_below")
+
+        if target_price_above is None and target_price_below is None:
+            # allow no price alerts
+            pass
+
+        if target_price_above is not None and target_price_above <= 0:
+            raise serializers.ValidationError(
+                {"target_price_above": ["Upper alert price must be greater than 0."]}
+            )
+
+        if target_price_below is not None and target_price_below <= 0:
+            raise serializers.ValidationError(
+                {"target_price_below": ["Lower alert price must be greater than 0."]}
+            )
+
+        if (
+            target_price_above is not None
+            and target_price_below is not None
+            and target_price_below >= target_price_above
+        ):
+            raise serializers.ValidationError(
+                {
+                    "non_field_errors": [
+                        "Lower alert price must be less than upper alert price."
+                    ]
+                }
+            )
+
         qs = Subscription.objects.filter(
             user=user,
             ticker=ticker,
@@ -41,7 +72,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {
                     "non_field_errors": [
-                        "You already subscribed to this ticker for this email."
+                        "You already have a subscription for this ticker and recipient. Update it instead of creating another one."
                     ]
                 }
             )
@@ -49,3 +80,23 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         attrs["ticker"] = ticker
         attrs["email"] = email
         return attrs
+    
+    def update(self, instance, validated_data):
+        old_above = instance.target_price_above
+        old_below = instance.target_price_below
+
+        new_above = validated_data.get("target_price_above", old_above)
+        new_below = validated_data.get("target_price_below", old_below)
+
+        threshold_changed = (old_above != new_above) or (old_below != new_below)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if threshold_changed:
+            instance.alert_triggered = False
+            instance.alert_triggered_at = None
+
+        instance.save()
+        return instance
+        

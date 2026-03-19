@@ -106,9 +106,59 @@ def render_and_send_email(recipient_email: str, stock_updates: list[dict]):
     msg = EmailMultiAlternatives(
         subject=subject,
         body=text_body,
-        from_email=from_email,
+        from_email=settings.DEFAULT_FROM_EMAIL,
         to=[recipient_email],
         connection=connection,
+    )
+    msg.attach_alternative(html_body, "text/html")
+    msg.send()
+
+def render_and_send_price_alert_email(
+    *,
+    recipient_email: str,
+    ticker: str,
+    current_price: float,
+    threshold: float,
+    direction: str,
+    price_source: str,
+):
+    if direction == "above":
+        condition_text = f"rose above your alert price of ${threshold:.2f}"
+        subject = f"Price Alert: {ticker} crossed above ${threshold:.2f}"
+    else:
+        condition_text = f"fell below your alert price of ${threshold:.2f}"
+        subject = f"Price Alert: {ticker} fell below ${threshold:.2f}"
+
+    text_body = f"""
+Price Alert
+
+{ticker} has {condition_text}.
+Current price: ${current_price:.2f}
+Price source: {price_source}
+
+This is an automated notification from Stock Subscription App.
+""".strip()
+
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2>🚨 Price Alert</h2>
+        <p><strong>{ticker}</strong> has {condition_text}.</p>
+        <p>Current price: <strong>${current_price:.2f}</strong></p>
+        <p style="color: #666;">Price source: {price_source}</p>
+        <hr />
+        <p style="font-size: 12px; color: #999;">
+          This is an automated notification from Stock Subscription App.
+        </p>
+      </body>
+    </html>
+    """
+
+    msg = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[recipient_email],
     )
     msg.attach_alternative(html_body, "text/html")
     msg.send()

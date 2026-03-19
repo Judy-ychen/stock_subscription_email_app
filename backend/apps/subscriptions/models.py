@@ -12,6 +12,22 @@ class Subscription(models.Model):
     email      = models.EmailField()              # recipient — may differ from login email
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Price alert fields
+    target_price_above = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    target_price_below = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    alert_triggered = models.BooleanField(default=False)
+    alert_triggered_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ["-created_at"]
         # one user cannot subscribe the same ticker to the same email twice
