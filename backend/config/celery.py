@@ -20,11 +20,15 @@ app.conf.beat_schedule = {
         # 9 AM ET = 13:00 UTC (EDT) / 14:00 UTC (EST)
         # 5 PM ET = 21:00 UTC (EDT) / 22:00 UTC (EST)
         # Using EDT (UTC-4) as the base — covers daylight saving time
+
         "schedule": crontab(
             minute="0",
             hour="9,10,11,12,13,14,15,16,17",   # 9 AM–5 PM EST
             day_of_week="1,2,3,4,5",              # Mon–Fri
         ),
+        
+        # For test: Send every minute
+        # "schedule": crontab(),
     },
 }
 

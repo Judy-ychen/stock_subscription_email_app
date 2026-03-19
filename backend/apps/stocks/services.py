@@ -91,8 +91,6 @@ def validate_ticker(ticker: str) -> bool:
         return cached
 
     try:
-        
-
         info = yf.Ticker(ticker).fast_info
         is_valid = getattr(info, "last_price", None) is not None
 

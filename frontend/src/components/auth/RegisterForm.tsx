@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { registerUser } from "../../lib/authApi";
 import { Button } from "../ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
@@ -103,18 +109,33 @@ export default function RegisterForm({
   };
 
   return (
-    <Card className="max-w-md">
-      <CardHeader>
-        <CardTitle>Create account</CardTitle>
-        <CardDescription>
-          Register a new account for the stock subscription app.
-        </CardDescription>
+    <Card className="w-full max-w-md rounded-3xl border border-border/30 shadow-xl backdrop-blur">
+      <CardHeader className="space-y-4 pb-4">
+        <div className="flex justify-center">
+          <div className="rounded-xl bg-primary/10 px-3 py-1 text-sm font-semibold text-foreground">
+            Create account
+          </div>
+        </div>
+
+        <div className="space-y-2 text-center">
+          <CardTitle className="text-3xl font-bold text-foreground md:text-4xl">
+            Register
+          </CardTitle>
+          <CardDescription className="text-base leading-7 text-slate-600 dark:text-slate-300">
+            Register a new account for the stock subscription app.
+          </CardDescription>
+        </div>
       </CardHeader>
 
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="register-email">Email</Label>
+            <Label
+              htmlFor="register-email"
+              className="text-base font-semibold text-foreground"
+            >
+              Email
+            </Label>
             <Input
               id="register-email"
               type="email"
@@ -124,11 +145,18 @@ export default function RegisterForm({
                 setErrorMessage("");
                 setSuccessMessage("");
               }}
+              className="h-12 rounded-xl text-base"
+              placeholder="Enter your email"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="register-password">Password</Label>
+            <Label
+              htmlFor="register-password"
+              className="text-base font-semibold text-foreground"
+            >
+              Password
+            </Label>
             <Input
               id="register-password"
               type="password"
@@ -138,11 +166,18 @@ export default function RegisterForm({
                 setErrorMessage("");
                 setSuccessMessage("");
               }}
+              className="h-12 rounded-xl text-base"
+              placeholder="Enter your password"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="register-password-confirm">Confirm Password</Label>
+            <Label
+              htmlFor="register-password-confirm"
+              className="text-base font-semibold text-foreground"
+            >
+              Confirm Password
+            </Label>
             <Input
               id="register-password-confirm"
               type="password"
@@ -152,19 +187,39 @@ export default function RegisterForm({
                 setErrorMessage("");
                 setSuccessMessage("");
               }}
+              className="h-12 rounded-xl text-base"
+              placeholder="Confirm your password"
             />
           </div>
 
-          {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
-          {successMessage && <p className="text-sm text-green-600">{successMessage}</p>}
+          {errorMessage && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+              {errorMessage}
+            </div>
+          )}
 
-          <div className="flex gap-2">
-            <Button type="submit" className="flex-1" disabled={isSubmitting}>
+          {successMessage && (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-600">
+              {successMessage}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              type="submit"
+              className="h-12 flex-1 rounded-xl text-base"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Registering..." : "Register"}
             </Button>
 
             {onBackToLogin && (
-              <Button type="button" variant="outline" onClick={onBackToLogin}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 rounded-xl text-base"
+                onClick={onBackToLogin}
+              >
                 Back to Login
               </Button>
             )}

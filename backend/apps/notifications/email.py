@@ -72,7 +72,7 @@ def render_and_send_email(recipient_email: str, stock_updates: list[dict]):
     from django.utils import timezone
     from django.core.mail import get_connection
 
-    generated_at = timezone.now().strftime("%B %d, %Y %H:%M UTC")
+    generated_at = (timezone.localtime(timezone.now())).strftime("%B %d, %Y %I:%M %p %Z")
 
     # Build HTML blocks
     stock_blocks = "".join(
