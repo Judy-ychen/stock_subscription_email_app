@@ -63,6 +63,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
+    "https://stock-subscription-email-app.vercel.app",
+    "https://stock-subscription-email-gtzvy0uaf-judy-ychens-projects.vercel.app",
 ]
 
 REST_FRAMEWORK = {
