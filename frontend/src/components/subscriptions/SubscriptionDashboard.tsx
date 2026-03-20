@@ -224,6 +224,7 @@ export default function SubscriptionDashboard() {
 
       try {
         const result = await validateTicker(trimmed);
+        console.log("FRONTEND BUILD CHECK", "provider-aware version");
         console.log("validateTicker result:", result);
         if (cancelled) return;
 
