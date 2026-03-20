@@ -105,16 +105,21 @@ def validate_ticker(ticker: str) -> dict:
 
     try:
         hist = _fetch_history(ticker, period="5d")
-        is_valid = not hist.empty
+
+        if hist.empty:
+            logger.warning("validate_ticker: empty history for %s", ticker)
+            return {
+                "ticker": ticker,
+                "valid": False,
+                "reason": "provider_unavailable",
+            }
 
         result = {
             "ticker": ticker,
-            "valid": is_valid,
-            "reason": None if is_valid else "invalid",
+            "valid": True,
+            "reason": None,
         }
-
-        ttl = TICKER_VALID_TTL if is_valid else TICKER_INVALID_TTL
-        cache.set(cache_key, result, ttl)
+        cache.set(cache_key, result, TICKER_VALID_TTL)
         return result
 
     except Exception as exc:
@@ -127,16 +132,18 @@ def validate_ticker(ticker: str) -> dict:
 
 
 def get_stock_price(ticker: str) -> StockPrice:
+    ticker = ticker.upper().strip()
+
     validation = validate_ticker(ticker)
 
     if not validation["valid"]:
-        if validation["reason"] == "provider_unavailable":
-            logger.warning("Ticker validation unavailable for %s — using mock fallback", ticker)
+        if validation.get("reason") == "provider_unavailable":
+            logger.warning("Validation unavailable for %s — using mock fallback", ticker)
             return {
                 "ticker": ticker,
                 "price": _mock_price(ticker),
                 "source": "mock",
-                "note": "Validation unavailable; using mock fallback.",
+                "note": "Yahoo Finance validation unavailable, using mock fallback.",
             }
 
         return {
@@ -145,7 +152,15 @@ def get_stock_price(ticker: str) -> StockPrice:
             "source": "invalid",
             "note": "Ticker could not be validated against Yahoo Finance.",
         }
-    
+
+    if _is_mock_mode():
+        return {
+            "ticker": ticker,
+            "price": _mock_price(ticker),
+            "source": "mock",
+            "note": "Mock mode enabled.",
+        }
+
     cache_key = _cache_key_price(ticker)
     cached = cache.get(cache_key)
     if cached is not None:
@@ -156,24 +171,20 @@ def get_stock_price(ticker: str) -> StockPrice:
     if price is not None:
         result: StockPrice = {
             "ticker": ticker,
-            "price":  price,
+            "price": price,
             "source": "yfinance",
-            "note" : None,
+            "note": None,
         }
-        cache.set(cache_key, result, PRICE_TTL)   # only cache real data
+        cache.set(cache_key, result, PRICE_TTL)
         return result
-    
-    
-    # Network failure or yfinance down → use mock, but don't cache
-    # so the next request tries yfinance again
+
     logger.warning("yfinance unavailable for %s — using mock fallback", ticker)
-    result: StockPrice = {
+    return {
         "ticker": ticker,
         "price": _mock_price(ticker),
         "source": "mock",
         "note": "Yahoo Finance unavailable, using mock fallback.",
     }
-    return result
 
 
 def get_stock_prices(tickers: list[str]) -> list[StockPrice]:

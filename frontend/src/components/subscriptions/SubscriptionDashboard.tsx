@@ -224,6 +224,7 @@ export default function SubscriptionDashboard() {
 
       try {
         const result = await validateTicker(trimmed);
+        console.log("validateTicker result:", result);
         if (cancelled) return;
 
         if (result.valid) {
