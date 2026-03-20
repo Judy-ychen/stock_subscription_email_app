@@ -143,7 +143,7 @@ export default function SubscriptionDashboard() {
     return (
       !!tickerInput.trim() &&
       !!recipientEmail.trim() &&
-      tickerValid === true &&
+      tickerValid !== false &&
       !isCreating
     );
   }, [tickerInput, recipientEmail, tickerValid, isCreating]);
@@ -226,19 +226,20 @@ export default function SubscriptionDashboard() {
         const result = await validateTicker(trimmed);
         if (cancelled) return;
 
-        setTickerValid(result.valid);
-
-        if (!result.valid) {
+        if (result.valid) {
+          setTickerValid(true);
+          setTickerError("");
+        } else if (result.reason === "provider_unavailable") {
+          setTickerValid(null);
+          setTickerError("Ticker validation is temporarily unavailable. You can still try creating the subscription.");
+        } else {
+          setTickerValid(false);
           setTickerError("Invalid ticker symbol.");
         }
       } catch {
         if (cancelled) return;
         setTickerValid(null);
         setTickerError("Ticker validation failed. Please try again.");
-      } finally {
-        if (!cancelled) {
-          setIsValidatingTicker(false);
-        }
       }
     };
 
@@ -276,7 +277,7 @@ export default function SubscriptionDashboard() {
       return;
     }
 
-    if (tickerValid !== true) {
+    if (tickerValid === false) {
       setTickerError("Please enter a valid ticker before creating.");
       return;
     }

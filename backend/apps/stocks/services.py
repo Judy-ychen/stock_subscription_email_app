@@ -81,15 +81,22 @@ def _mock_price(ticker: str) -> float:
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
-def validate_ticker(ticker: str) -> bool:
+def validate_ticker(ticker: str) -> dict:
     ticker = ticker.upper().strip()
 
-    # basic format guard first
     if not re.match(r"^[A-Z]{1,5}$", ticker):
-        return False
+        return {
+            "ticker": ticker,
+            "valid": False,
+            "reason": "invalid",
+        }
 
     if _is_mock_mode():
-        return True
+        return {
+            "ticker": ticker,
+            "valid": True,
+            "reason": "mock_mode",
+        }
 
     cache_key = _cache_key_valid(ticker)
     cached = cache.get(cache_key)
@@ -100,39 +107,43 @@ def validate_ticker(ticker: str) -> bool:
         hist = _fetch_history(ticker, period="5d")
         is_valid = not hist.empty
 
-        ttl = TICKER_VALID_TTL if is_valid else TICKER_INVALID_TTL
-        cache.set(cache_key, is_valid, ttl)
+        result = {
+            "ticker": ticker,
+            "valid": is_valid,
+            "reason": None if is_valid else "invalid",
+        }
 
-        logger.info("Ticker validation result for %s: %s", ticker, is_valid)
-        return is_valid
+        ttl = TICKER_VALID_TTL if is_valid else TICKER_INVALID_TTL
+        cache.set(cache_key, result, ttl)
+        return result
 
     except Exception as exc:
         logger.warning("validate_ticker failed for %s: %s", ticker, exc)
-
-        # Important:
-        # Network/provider failure should NOT silently mark unknown tickers as valid.
-        # Return False so we preserve the requirement that ticker must be real.
-        return False
+        return {
+            "ticker": ticker,
+            "valid": False,
+            "reason": "provider_unavailable",
+        }
 
 
 def get_stock_price(ticker: str) -> StockPrice:
-    ticker = ticker.upper().strip()
+    validation = validate_ticker(ticker)
 
-    is_valid = validate_ticker(ticker)
-    if not is_valid:
+    if not validation["valid"]:
+        if validation["reason"] == "provider_unavailable":
+            logger.warning("Ticker validation unavailable for %s — using mock fallback", ticker)
+            return {
+                "ticker": ticker,
+                "price": _mock_price(ticker),
+                "source": "mock",
+                "note": "Validation unavailable; using mock fallback.",
+            }
+
         return {
             "ticker": ticker,
             "price": None,
             "source": "invalid",
             "note": "Ticker could not be validated against Yahoo Finance.",
-        }
-    
-    if _is_mock_mode():
-        return {
-            "ticker": ticker,
-            "price":  _mock_price(ticker),
-            "source": "mock",
-            "note": "Mock mode enabled.",
         }
     
     cache_key = _cache_key_price(ticker)

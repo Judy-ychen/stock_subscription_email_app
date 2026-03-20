@@ -13,8 +13,8 @@ def validate_ticker_view(request, ticker: str):
     GET /api/stocks/validate/<ticker>/
     Returns { ticker, valid }
     """
-    is_valid = validate_ticker(ticker)
-    return Response({"ticker": ticker.upper(), "valid": is_valid})
+    result = validate_ticker(ticker)
+    return Response(result)
 
 
 @api_view(["GET"])
