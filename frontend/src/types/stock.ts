@@ -6,7 +6,8 @@ export type StockValidationResponse = {
 export type StockPriceResponse = {
   ticker: string;
   price: number | null;
-  source: "yfinance" | "mock" | "cache" | string;
+  source: "yfinance" | "mock" | "cache" | "invalid" | "unavailable" | string;
+  note?: string | null;
 };
 
 export type StockSnapshotResponse = {

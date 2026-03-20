@@ -173,6 +173,7 @@ export default function SubscriptionDashboard() {
               ticker,
               price: null,
               source: "unavailable",
+              note: "Price lookup failed.",
             } as StockPriceResponse,
           ] as const;
         }
@@ -553,17 +554,38 @@ export default function SubscriptionDashboard() {
                         <td className="px-4 py-3">
                           {priceData ? (
                             priceData.price !== null ? (
-                              <div className="flex flex-col">
-                                <span>${priceData.price}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  source: {priceData.source}
-                                </span>
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium">${priceData.price.toFixed(2)}</span>
+
+                                {priceData.source === "yfinance" && (
+                                  <span className="text-xs text-green-600">Yahoo Finance</span>
+                                )}
+
+                                {priceData.source === "mock" && (
+                                  <span className="text-xs text-amber-600">Mock fallback</span>
+                                )}
+
+                                {priceData.note && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {priceData.note}
+                                  </span>
+                                )}
                               </div>
                             ) : (
-                              <span className="text-red-600">Invalid ticker</span>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-red-600">Invalid ticker</span>
+                                {priceData.note && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {priceData.note}
+                                  </span>
+                                )}
+                              </div>
                             )
                           ) : (
-                            <Skeleton className="h-4 w-20" />
+                            <div className="flex flex-col gap-1">
+                              <Skeleton className="h-4 w-20" />
+                              <span className="text-xs text-muted-foreground">Loading price...</span>
+                            </div>
                           )}
                         </td>
 

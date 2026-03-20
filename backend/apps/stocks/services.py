@@ -32,8 +32,8 @@ PRICE_TTL          = 60 * 5         # 5 minutes — stock price
 class StockPrice(TypedDict):
     ticker : str
     price  : float | None
-    source : str   # "yfinance" | "mock"
-
+    source : str   # "yfinance" | "mock" | "invalid"
+    note: str | None    
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 def _cache_key_valid(ticker: str) -> str:
@@ -49,21 +49,24 @@ def _fetch_from_yfinance(ticker: str) -> float | None:
     Kept in its own function so it's easy to mock in tests.
     """
     try:
+        hist = _fetch_history(ticker, period="5d")
+        if hist.empty:
+            logger.warning("yfinance history empty for %s", ticker)
+            return None
 
-        info = yf.Ticker(ticker).fast_info
-        price = getattr(info, "last_price", None)
-
-        if price is None:
-            # fast_info may not have last_price for all tickers; fall back
-            hist = yf.Ticker(ticker).history(period="1d")
-            if hist.empty:
-                return None
-            price = float(hist["Close"].iloc[-1])
-
-        return float(price)
+        price = float(hist["Close"].iloc[-1])
+        logger.info("Price fetched from yfinance for %s: %s", ticker, price)
+        return price
     except Exception as exc:
         logger.warning("yfinance error for %s: %s", ticker, exc)
         return None
+
+def _fetch_history(ticker: str, period: str = "5d"):
+    """
+    Centralized yfinance fetch helper so logging/debugging is consistent.
+    """
+    obj = yf.Ticker(ticker)
+    return obj.history(period=period, auto_adjust=False)
 
 
 def _mock_price(ticker: str) -> float:
@@ -78,41 +81,37 @@ def _mock_price(ticker: str) -> float:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 def validate_ticker(ticker: str) -> bool:
-    if _is_mock_mode():
-        # In mock mode, accept any reasonable-looking ticker (1-5 uppercase letters)
-        import re
-        return bool(re.match(r'^[A-Z]{1,5}$', ticker.upper().strip()))
-    
     ticker = ticker.upper().strip()
-    cache_key = _cache_key_valid(ticker)
 
+    # basic format guard first
+    if not re.match(r"^[A-Z]{1,5}$", ticker):
+        return False
+
+    if _is_mock_mode():
+        return True
+
+    cache_key = _cache_key_valid(ticker)
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
     try:
-        info = yf.Ticker(ticker).fast_info
-        is_valid = getattr(info, "last_price", None) is not None
-
-        # if not is_valid:
-        #     full_info = yf.Ticker(ticker).info
-        #     is_valid = bool(
-        #         full_info.get("regularMarketPrice")
-        #         or full_info.get("currentPrice")
-        #         or full_info.get("navPrice")
-        #     )
+        hist = _fetch_history(ticker, period="5d")
+        is_valid = not hist.empty
 
         ttl = TICKER_VALID_TTL if is_valid else TICKER_INVALID_TTL
         cache.set(cache_key, is_valid, ttl)
+
+        logger.info("Ticker validation result for %s: %s", ticker, is_valid)
         return is_valid
 
     except Exception as exc:
         logger.warning("validate_ticker failed for %s: %s", ticker, exc)
-        # ── KEY CHANGE ──────────────────────────────────────────────────────
-        # Network error ≠ invalid ticker.
-        # Return True optimistically so the user isn't blocked by infra issues.
-        # Do NOT cache this result — retry next time.
-        return True
+
+        # Important:
+        # Network/provider failure should NOT silently mark unknown tickers as valid.
+        # Return False so we preserve the requirement that ticker must be real.
+        return False
 
 
 def get_stock_price(ticker: str) -> StockPrice:
@@ -124,6 +123,7 @@ def get_stock_price(ticker: str) -> StockPrice:
             "ticker": ticker,
             "price": None,
             "source": "invalid",
+            "note": "Ticker could not be validated against Yahoo Finance.",
         }
     
     if _is_mock_mode():
@@ -131,6 +131,7 @@ def get_stock_price(ticker: str) -> StockPrice:
             "ticker": ticker,
             "price":  _mock_price(ticker),
             "source": "mock",
+            "note": "Mock mode enabled.",
         }
     
     cache_key = _cache_key_price(ticker)
@@ -145,6 +146,7 @@ def get_stock_price(ticker: str) -> StockPrice:
             "ticker": ticker,
             "price":  price,
             "source": "yfinance",
+            "note" : None,
         }
         cache.set(cache_key, result, PRICE_TTL)   # only cache real data
         return result
@@ -153,11 +155,13 @@ def get_stock_price(ticker: str) -> StockPrice:
     # Network failure or yfinance down → use mock, but don't cache
     # so the next request tries yfinance again
     logger.warning("yfinance unavailable for %s — using mock fallback", ticker)
-    result = {
+    result: StockPrice = {
         "ticker": ticker,
-        "price":  _mock_price(ticker),
+        "price": _mock_price(ticker),
         "source": "mock",
+        "note": "Yahoo Finance unavailable, using mock fallback.",
     }
+    return result
 
 
 def get_stock_prices(tickers: list[str]) -> list[StockPrice]:
@@ -179,29 +183,23 @@ def get_stock_snapshot(ticker: str) -> dict:
             "price": price,
             "previous_close": previous_close,
             "source": "mock",
+            "note": "Mock mode enabled.",
         }
 
     try:
-        import yfinance as yf
+        hist = _fetch_history(ticker, period="5d")
+        if hist.empty:
+            raise ValueError("No historical data returned")
 
-        obj = yf.Ticker(ticker)
-        fast = obj.fast_info
-
-        current_price = getattr(fast, "last_price", None) or getattr(fast, "lastPrice", None)
-        previous_close = getattr(fast, "previous_close", None) or getattr(fast, "previousClose", None)
-
-        if current_price is None or previous_close is None:
-            hist = obj.history(period="5d")
-            if hist.empty:
-                raise ValueError("No historical data returned")
-            current_price = float(hist["Close"].iloc[-1])
-            previous_close = float(hist["Close"].iloc[-2]) if len(hist) >= 2 else current_price
+        current_price = float(hist["Close"].iloc[-1])
+        previous_close = float(hist["Close"].iloc[-2]) if len(hist) >= 2 else current_price
 
         return {
             "ticker": ticker,
-            "price": float(current_price),
-            "previous_close": float(previous_close),
+            "price": current_price,
+            "previous_close": previous_close,
             "source": "yfinance",
+            "note": None,
         }
 
     except Exception as exc:
@@ -213,4 +211,5 @@ def get_stock_snapshot(ticker: str) -> dict:
             "price": price,
             "previous_close": previous_close,
             "source": "mock",
+            "note": "Yahoo Finance unavailable, using mock fallback.",
         }
