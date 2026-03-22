@@ -12,7 +12,7 @@ Supports external data providers (yfinance) with automatic fallback to mock data
 
 ```bash
 # 1. Clone and configure
-git clone https://github.com/your-handle/stock-subscription-app
+git clone https://github.com/Judy-ychen/stock_subscription_email_app
 cd stock-subscription-app
 cp .env.example .env  # fill in environment variables
 
