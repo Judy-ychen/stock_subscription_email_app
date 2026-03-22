@@ -14,13 +14,17 @@ Supports external data providers (yfinance) with automatic fallback to mock data
 # 1. Clone and configure
 git clone https://github.com/your-handle/stock-subscription-app
 cd stock-subscription-app
-cp .env.example .env          # fill in API keys (see .env.example)
+cp .env.example .env  # fill in environment variables
 
-# 2. Start all six services
+# 2. Start services
 docker compose up --build
 
 # 3. Create an admin user (separate terminal)
-docker compose exec api python manage.py createsuperuser
+docker compose exec -e DJANGO_SUPERUSER_EMAIL=admin@example.com \
+  -e DJANGO_SUPERUSER_PASSWORD=Admin123456 \
+  -e DJANGO_SUPERUSER_FIRST_NAME=Admin \
+  -e DJANGO_SUPERUSER_LAST_NAME=User \
+  api python manage.py create_admin
 ```
 
 | Service | URL |
@@ -165,7 +169,7 @@ VITE_API_URL=http://localhost:8000
 ├── backend/
 │   ├── config/              # Django settings, urls, celery, wsgi
 │   ├── apps/
-│   │   ├── users/           # User model, auth endpoints
+│   │   ├── accounts/           # User model, auth endpoints
 │   │   ├── subscriptions/   # Subscription model, CRUD, Send Now + price alerts + email logs
 │   │   ├── stocks/          # yfinance integration + mock fallback
 │   │   ├── notifications/   # email sending + Celery tasks
@@ -193,11 +197,11 @@ docker compose exec api python manage.py test
 
 | Test | Covers |
 |---|---|
-| `test_subscription_unique_constraint` | Duplicate (owner, ticker, recipient_email) raises IntegrityError |
-| `test_merge_email_groups_by_recipient` | 3 subs across 2 recipients → 2 outbound emails |
-| `test_admin_sees_all_subscriptions` | is_staff user gets all rows; regular user gets own only |
-| `test_ai_fallback_on_provider_failure` | Rule-based signal returned when OpenRouter raises |
-| `test_ticker_normalised_to_uppercase` | Saving `aapl` stores `AAPL` |
+| `test_duplicate_subscription_rejected` | Prevents duplicate subscriptions for the same (user, ticker, email) via serializer validation |
+| `test_invalid_ticker_rejected` | Rejects invalid ticker symbols using `validate_ticker` in serializer |
+| `test_get_stock_price_returns_invalid_for_invalid_ticker` | Returns `{ price: None, source: "invalid" }` when ticker validation fails |
+| `test_get_stock_price_mock_fallback_when_provider_fails` | Falls back to mock price when external provider (yfinance) fails for a valid ticker |
+| `test_ai_fallback_on_api_error` | Uses rule-based recommendation when OpenRouter API call fails |
 
 ---
 
@@ -214,3 +218,26 @@ This system is designed with graceful degradation:
 This ensures core functionality (alerts and notifications) remains operational.
 
 > For architecture decisions, tradeoffs, and scalability notes see [DESIGN.md](./DESIGN.md).
+
+## Cloud Deployment
+
+This project is deployed using a modern full-stack architecture:
+
+- **Frontend**: Deployed on Vercel  
+- **Backend API**: Deployed on Railway  
+
+### Live URLs
+
+- Web App:  
+  👉 https://stock-subscription-email-app.vercel.app
+  
+---
+
+### Deployment Overview
+
+- The **React frontend** is hosted on Vercel for fast global delivery and automatic CI/CD from GitHub.
+- The **Django backend** is hosted on Railway, providing:
+  - Managed PostgreSQL database
+  - Environment variable management
+  - Automatic deployments from GitHub
+
