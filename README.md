@@ -73,11 +73,7 @@ docker compose exec api python manage.py createsuperuser
 Beat fires → worker queries active subscriptions → groups by `recipient_email` → fetches price (yfinance; falls back to mock data if unavailable; cached 5 min) → AI recommendation (Redis cache, 1 hr) → one merged email per recipient → writes `EmailLog` + `EmailLogItem`
 
 **Data flow — price alert:**
-Beat fires every 60s → worker fetches prices (via yfinance; falls back to mock when provider unavailable)
-compares against alert thresholds
-on breach:
-  sends immediate email
-  marks alert as triggered (one-time alert) 
+Beat fires every 60s → worker fetches prices (via yfinance; falls back to mock when provider unavailable) → compares against alert thresholds → on breach: sends immediate email + marks alert as triggered (one-time alert) 
 
 ---
 
