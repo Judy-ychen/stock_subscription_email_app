@@ -42,13 +42,16 @@
 
 ---
 
-#### 2. JWT Refresh Infinite Loop (Frontend)
-- **AI issue**: Interceptor retried refresh indefinitely on 401
+#### 2. JWT Token Handling Improvement (Frontend)
+- **AI suggestion**:
+  - Basic interceptor for attaching tokens
+- **Issue observed**:
+  - Potential for duplicate refresh requests during concurrent API calls
 - **Fix**:
-  - Added `isRefreshing` flag
-  - Queued pending requests during refresh
-  - Ensured **only one refresh request at a time**
-- **Impact**: Prevented infinite loop + race conditions
+  - Introduced request queueing during token refresh
+  - Ensured only one refresh request is executed at a time
+- **Impact**:
+  - Prevented race conditions and redundant API calls
 
 ---
 
@@ -91,14 +94,14 @@
 
 ---
 
-#### 6. Subscription Duplicate Handling (500 → 400)
-- **AI issue**: duplicate subscription caused server error
+#### 6. Duplicate Subscription Validation
+- **Issue**:
+  - Duplicate subscriptions were not properly handled at validation layer
 - **Fix**:
-- Added serializer-level validation
-- Returned proper `ValidationError`
+  - Added serializer-level validation for (user, ticker, email)
 - **Impact**:
-- Clean API behavior
-- Frontend can show inline error
+  - Prevented duplicate entries
+  - Returned clean API error for frontend handling
 
 ---
 
@@ -114,16 +117,16 @@
 
 ---
 
-#### 8. PATCH Not Allowed (Critical API Bug)
-- **Error**: `405 Method Not Allowed`
+#### 8. PATCH Method Not Allowed (405)
+- **Error**:
+  - PATCH requests returned 405 Method Not Allowed
 - **Root cause**:
-- ViewSet missing `partial_update`
+  - ViewSet configuration did not support partial updates
 - **Fix**:
-- Switched to proper `ModelViewSet`
-- Enabled PATCH method
+  - Enabled PATCH in ViewSet (partial_update)
+  - Verified router configuration
 - **Impact**:
-- Enabled alert editing feature
-
+  - Enabled alert editing functionality
 ---
 
 #### 9. 401 Unauthorized Issues (Token Handling)
@@ -139,12 +142,14 @@
 
 #### 10. API Route Mismatch (404 Errors)
 - **Issue**:
-- Frontend called wrong endpoints (`send_now` vs `send`)
+  - Frontend endpoints did not match Django routes
+- **Examples**:
+  - `send_now` vs `send`
+  - incorrect subscription ID paths
 - **Fix**:
-- Aligned frontend with Django routes
+  - Aligned frontend API layer with backend URL patterns
 - **Impact**:
-- Eliminated 404 errors
-
+  - Eliminated 404 errors
 ---
 
 #### 11. Email Logging + Failure Tracking
@@ -163,13 +168,14 @@
 
 ---
 
-#### 12. Price Alert Logic (Edge Case Fix)
+#### 12. Price Alert Trigger Timing
 - **Issue**:
-- Alerts not triggered immediately after creation
+  - Alerts only triggered via scheduled tasks
+  - Newly created alerts might miss immediate trigger condition
 - **Fix**:
-- Added immediate evaluation on create/update
+  - Added immediate evaluation after create/update
 - **Impact**:
-- No missed alerts
+  - Ensured no missed alerts
 
 ---
 
