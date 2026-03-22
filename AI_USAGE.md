@@ -62,13 +62,21 @@
 
 ---
 
-#### 4. yfinance Integration Incorrect
-- **AI assumption**: `info["price"]`
-- **Reality**: correct field is `regularMarketPrice`
+#### 4. yfinance Integration Reliability Issue
+- **Observed issue**:
+  - yfinance frequently failed (network / provider instability)
+  - Returned `None` or raised exceptions
+- **AI gap**:
+  - Did not consider external API unreliability
 - **Fix**:
-- Updated parsing logic
-- Added robust error handling
-- **Impact**: Correct real stock data retrieval
+  - Implemented safe wrapper around yfinance calls
+  - Added fallback logic when price fetch fails
+- **My improvement**:
+  - Introduced **mock price fallback system**
+  - Avoid caching fallback values (so real data can recover later)
+- **Impact**:
+  - System remains functional even when external API is down
+  - Enables local development without internet dependency
 
 ---
 
