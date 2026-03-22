@@ -1,6 +1,8 @@
 # Stock Subscription App
 
-Real-time stock price alerts and AI-powered Buy / Hold / Sell recommendations, delivered by email.
+Stock price alerts and AI-powered Buy / Hold / Sell recommendations, delivered by email.
+
+Supports external data providers (yfinance) with automatic fallback to mock data when unavailable.
 
 ---
 
@@ -68,10 +70,14 @@ docker compose exec api python manage.py createsuperuser
 ```
 
 **Data flow — hourly send:**
-Beat fires → worker queries active subscriptions → groups by `recipient_email` → fetches price (Redis cache, 5 min) → AI recommendation (Redis cache, 1 hr) → one merged email per recipient → writes `EmailLog` + `EmailLogItem`
+Beat fires → worker queries active subscriptions → groups by `recipient_email` → fetches price (yfinance; falls back to mock data if unavailable; cached 5 min) → AI recommendation (Redis cache, 1 hr) → one merged email per recipient → writes `EmailLog` + `EmailLogItem`
 
 **Data flow — price alert:**
-Beat fires every 60s → worker fetches prices for all watched tickers (deduplicated) → compares against `PriceAlert` thresholds → on breach: sends immediate email, sets `is_active=False`
+Beat fires every 60s → worker fetches prices (via yfinance; falls back to mock when provider unavailable)
+compares against alert thresholds
+on breach:
+  sends immediate email
+  marks alert as triggered (one-time alert) 
 
 ---
 
@@ -92,6 +98,7 @@ Beat fires every 60s → worker fetches prices for all watched tickers (deduplic
 | Containers | Docker Compose | One `docker compose up` starts all 6 services |
 | Backend deploy | Railway | Supports Django + PostgreSQL + Redis + Celery in one project |
 | Frontend deploy | Vercel | Static deploy; free tier; global CDN |
+| Stock data | yfinance + fallback | Uses yfinance when available; falls back to mock data for reliability |
 
 ---
 
@@ -106,22 +113,15 @@ Beat fires every 60s → worker fetches prices for all watched tickers (deduplic
 | POST | `/api/auth/refresh/` | Exchange refresh token for new access token |
 | GET | `/api/auth/me/` | Current user profile |
 
-### Subscriptions
+### Subscriptions (includes price alerts)
 
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/api/subscriptions/` | List subscriptions (own only; admins see all) |
-| POST | `/api/subscriptions/` | Create subscription (validates ticker on save) |
-| DELETE | `/api/subscriptions/:id/` | Soft-delete subscription |
+| POST | `/api/subscriptions/` | Create subscription (optionally include alert thresholds) |
+| PATCH | `/api/subscriptions/:id/` | Update alert thresholds |
+| DELETE | `/api/subscriptions/:id/` | Delete subscription |
 | POST | `/api/subscriptions/:id/send/` | Send Now — immediate price + AI email |
-
-### Price Alerts
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/alerts/` | List user's active price alerts |
-| POST | `/api/alerts/` | Create alert with upper/lower threshold |
-| DELETE | `/api/alerts/:id/` | Delete alert |
 
 ### Stock Data
 
@@ -170,11 +170,10 @@ VITE_API_URL=http://localhost:8000
 │   ├── config/              # Django settings, urls, celery, wsgi
 │   ├── apps/
 │   │   ├── users/           # User model, auth endpoints
-│   │   ├── subscriptions/   # Subscription model, CRUD, Send Now
-│   │   ├── alerts/          # PriceAlert model, check_price_alerts task
-│   │   ├── stocks/          # yfinance integration, price + validate endpoints
-│   │   ├── emails/          # Merge logic, HTML templates, SendGrid
-│   │   └── ai/              # AIProvider ABC, OpenRouterProvider, MockProvider
+│   │   ├── subscriptions/   # Subscription model, CRUD, Send Now + price alerts + email logs
+│   │   ├── stocks/          # yfinance integration + mock fallback
+│   │   ├── notifications/   # email sending + Celery tasks
+│   │   └── ai_recommendations/    # OpenRouterProvider + rule-based fallback
 │   ├── Dockerfile.dev
 │   └── Dockerfile.prod
 ├── frontend/
@@ -193,7 +192,7 @@ VITE_API_URL=http://localhost:8000
 ## Tests
 
 ```bash
-docker compose exec api pytest
+docker compose exec api python manage.py test
 ```
 
 | Test | Covers |
@@ -205,5 +204,17 @@ docker compose exec api pytest
 | `test_ticker_normalised_to_uppercase` | Saving `aapl` stores `AAPL` |
 
 ---
+
+## Resilience & Fallback Strategy
+
+External APIs (yfinance, OpenRouter) may be unreliable in certain environments.
+
+This system is designed with graceful degradation:
+
+- If yfinance fails → fallback to deterministic mock prices
+- If OpenRouter AI provider fails → fallback to rule-based recommendation
+- Emails are still delivered even when external services are unavailable
+
+This ensures core functionality (alerts and notifications) remains operational.
 
 > For architecture decisions, tradeoffs, and scalability notes see [DESIGN.md](./DESIGN.md).
