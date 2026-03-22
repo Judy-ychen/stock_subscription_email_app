@@ -8,7 +8,10 @@ Supports external data providers (yfinance) with automatic fallback to mock data
 
 ## Quick Start
 
-**Prerequisites:** Docker Desktop, Node.js 20+
+### Prerequisites
+
+- Docker Desktop (required to run all backend services)
+- Node.js 20+ (required for frontend development)
 
 ```bash
 # 1. Clone and configure
@@ -230,6 +233,27 @@ This project is deployed using a modern full-stack architecture:
 
 - Web App:  
   👉 https://stock-subscription-email-app.vercel.app
+
+### Demo Accounts
+
+You can use the following accounts to explore the live application without registering:
+
+#### Regular User
+- Email: `test@example.com`  
+- Password: `12345678`
+
+#### Admin User
+- Email: `admin@example.com`  
+- Password: `admin123`
+
+#### ✍️ Create Your Own Account
+
+Alternatively, you can register a new account directly from the web app
+
+#### 📌 Notes
+
+- The regular user can create and manage stock subscriptions on this account.
+- The admin user has elevated permissions (e.g., access to all subscriptions and admin-level operations).
   
 ---
 
